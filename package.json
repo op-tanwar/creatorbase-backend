@@ -1,0 +1,57 @@
+{
+  "name": "creatorbase-backend",
+  "version": "1.0.0",
+  "description": "Indian Influencer Discovery & Campaign Management SaaS Platform - Backend API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "tsx prisma/seed.ts",
+    "seed:real-creators": "tsx prisma/seedRealCreators.ts",
+    "seed:1000": "tsx prisma/seed1000RealCreators.ts",
+    "db:clean-creators": "tsx prisma/purgeJunkCreators.ts",
+    "db:sanitize-emails": "tsx prisma/sanitizeEmails.ts",
+    "db:sanitize-handles": "tsx prisma/sanitizeHandles.ts",
+    "test:verify-identities": "tsx prisma/verifyCreatorIdentities.ts",
+    "test:api-matrix": "tsx scripts/runCompleteApiAudit.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "apify-client": "^2.25.0",
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.2",
+    "cors": "^2.8.6",
+    "crypto-js": "^4.2.0",
+    "csv-parser": "^3.2.1",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.12.1",
+    "multer": "^2.5.0",
+    "prisma": "5.22.0",
+    "razorpay": "^2.9.8",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/crypto-js": "^4.2.2",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

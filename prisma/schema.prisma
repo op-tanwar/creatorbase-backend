@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  BRAND_ADMIN
+  AGENCY_MEMBER
+}
+
+enum PlanType {
+  FREE_TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  INACTIVE
+  ACTIVE
+  EXPIRED
+}
+
+enum PaymentStatus {
+  CREATED
+  SUCCESS
+  FAILED
+}
+
+enum Platform {
+  INSTAGRAM
+  YOUTUBE
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
+enum ClientApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DeliverableStage {
+  SHORTLISTED
+  EMAIL_SENT
+  COMMERCIALS_AGREED
+  DRAFT_UNDER_REVIEW
+  LIVE_AND_PAID
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+}
+
+enum EnrichmentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id                     String             @id @default(uuid())
+  name                   String
+  email                  String             @unique
+  passwordHash           String
+  companyName            String
+  role                   Role               @default(BRAND_ADMIN)
+  planType               PlanType           @default(FREE_TRIAL)
+  subscriptionStatus     SubscriptionStatus @default(INACTIVE)
+  planExpiresAt          DateTime?
+  enrichmentCreditsUsed  Int                @default(0)
+  enrichmentCreditsLimit Int                @default(50)
+  creditsResetAt         DateTime           @default(now())
+  isSuspended            Boolean            @default(false)
+  suspensionReason       String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  shortlists             Shortlist[]
+  campaigns              Campaign[]
+  payments               Payment[]
+  enrichmentJobs         EnrichmentJob[]
+
+  @@map("users")
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId    String        @unique
+  paymentId  String?
+  signature  String?
+  amount     Int           // Amount in Paise (e.g. 299900 for ₹2,999)
+  currency   String        @default("INR")
+  plan       String        // "STARTER" | "PRO"
+  status     PaymentStatus @default(CREATED)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([orderId])
+  @@map("payments")
+}
+
+model Creator {
+  id                       String          @id @default(uuid())
+  handle                   String          @unique
+  platform                 Platform
+  fullName                 String
+  avatarUrl                String
+  bio                      String?
+  postsCount               Int?            @default(0)
+  city                     String
+  state                    String
+  niche                    String
+  followerCount            Int
+  followingCount           Int?            @default(0)
+  engagementRate           Float
+  avgLikes                 Int
+  avgComments              Int
+  avgReelViews             Int
+  businessEmail            String?
+  isVerified               Boolean         @default(false)
+  audienceTopCity          String
+  audienceFemalePercentage Int
+  audienceMalePercentage   Int
+  lastScrapedAt            DateTime?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  shortlistItems           ShortlistItem[]
+
+  @@index([city])
+  @@index([niche])
+  @@index([followerCount])
+  @@index([engagementRate])
+  @@map("creators")
+}
+
+model Campaign {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  budgetINR   Float
+  targetCity  String?
+  status      CampaignStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  shortlists  Shortlist[]
+
+  @@index([userId])
+  @@map("campaigns")
+}
+
+model Shortlist {
+  id               String          @id @default(uuid())
+  shareToken       String?         @unique
+  isPubliclyShared Boolean         @default(true)
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId       String?
+  campaign         Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  name             String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  items            ShortlistItem[]
+
+  @@index([userId])
+  @@index([campaignId])
+  @@index([shareToken])
+  @@map("shortlists")
+}
+
+model ShortlistItem {
+  id                   String               @id @default(uuid())
+  shortlistId          String
+  shortlist            Shortlist            @relation(fields: [shortlistId], references: [id], onDelete: Cascade)
+  creatorId            String
+  creator              Creator              @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  notes                String?
+  assignedFeeINR       Float?
+  clientApprovalStatus ClientApprovalStatus @default(PENDING)
+  clientNotes          String?
+  stage                DeliverableStage     @default(SHORTLISTED)
+  liveUrl              String?
+  draftUrl             String?
+  agreedFeeINR         Int?
+  deliverableNotes     String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt @default(now())
+
+  @@unique([shortlistId, creatorId])
+  @@index([shortlistId])
+  @@index([creatorId])
+  @@map("shortlist_items")
+}
+
+model Lead {
+  id          String     @id @default(uuid())
+  fullName    String
+  workEmail   String
+  companyName String
+  budget      String
+  notes       String?
+  status      LeadStatus @default(NEW)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([workEmail])
+  @@map("leads")
+}
+
+model EnrichmentJob {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName      String
+  totalRows     Int
+  processedRows Int              @default(0)
+  status        EnrichmentStatus @default(PENDING)
+  results       Json?            // Array of enriched creator objects
+  logs          Json?            // Array of log entries for the live console
+  errorMessage  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@map("enrichment_jobs")
+}
