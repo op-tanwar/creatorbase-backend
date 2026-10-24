@@ -18,9 +18,11 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
   companyName: z.string().min(2, 'Company name must be at least 2 characters').optional(),
+  gstin: z.string().optional(),
+  billingAddress: z.string().optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(6, 'New password must be at least 6 characters').optional(),
-});
+}).passthrough();
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

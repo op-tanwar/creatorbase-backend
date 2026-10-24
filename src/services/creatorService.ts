@@ -177,12 +177,39 @@ export class CreatorService {
       throw error;
     }
 
-    // Computed influencer analytics summary
-    const estimatedCostPerReelINR = Math.round(
-      creator.followerCount * 0.35 + (creator.avgReelViews * 0.12)
+    // Computed smart influencer rate-card intelligence (Tier, Niche & Engagement Multipliers)
+    const nicheStr = (creator.niche || '').toLowerCase();
+    let nicheMultiplier = 1.0;
+    if (/finance|fintech|crypto|business|invest/i.test(nicheStr)) {
+      nicheMultiplier = 2.4;
+    } else if (/tech|gadget|ai|coding|software/i.test(nicheStr)) {
+      nicheMultiplier = 2.1;
+    } else if (/beauty|skincare|cosmetics|makeup/i.test(nicheStr)) {
+      nicheMultiplier = 1.55;
+    } else if (/fashion|streetwear|styling/i.test(nicheStr)) {
+      nicheMultiplier = 1.45;
+    } else if (/fitness|health/i.test(nicheStr)) {
+      nicheMultiplier = 1.25;
+    } else if (/food|cafe|travel/i.test(nicheStr)) {
+      nicheMultiplier = 1.2;
+    }
+
+    let erMultiplier = 1.0;
+    if (creator.engagementRate >= 6.5) erMultiplier = 1.35;
+    else if (creator.engagementRate >= 4.0) erMultiplier = 1.2;
+    else if (creator.engagementRate < 1.8) erMultiplier = 0.85;
+
+    const baseReel =
+      (creator.followerCount / 1000) * 160 * 0.55 +
+      (creator.avgReelViews / 1000) * 120 * 0.45;
+
+    const estimatedCostPerReelINR = Math.max(
+      3000,
+      Math.round((baseReel * nicheMultiplier * erMultiplier) / 500) * 500
     );
-    const estimatedCostPerStoryINR = Math.round(
-      creator.followerCount * 0.15
+    const estimatedCostPerStoryINR = Math.max(
+      1000,
+      Math.round((estimatedCostPerReelINR * 0.35) / 100) * 100
     );
     const authenticityScore = computeAuthenticityScore(creator);
 
