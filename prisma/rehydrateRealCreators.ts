@@ -155,8 +155,8 @@ export const YOUTUBE_MARQUEE_REGISTRY: Record<string, MarqueeChannelDef> = {
     avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80',
   },
   harshbeniwal: {
-    canonicalHandle: 'harshbeniwal',
-    canonicalUrl: 'https://www.youtube.com/@harshbeniwal',
+    canonicalHandle: 'harshbeniwal21',
+    canonicalUrl: 'https://www.youtube.com/@harshbeniwal21',
     officialName: 'Harsh Beniwal',
     verifiedSubs: 16000000,
     niche: 'Lifestyle',
@@ -479,9 +479,9 @@ export const YOUTUBE_MARQUEE_REGISTRY: Record<string, MarqueeChannelDef> = {
     businessEmail: 'tanmay@moonshot.in',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
   },
-  scoutop: {
-    canonicalHandle: 'scoutop',
-    canonicalUrl: 'https://www.youtube.com/@scoutop',
+  scoutofficial: {
+    canonicalHandle: 'scoutofficial',
+    canonicalUrl: 'https://www.youtube.com/@scoutofficial',
     officialName: 'Tanmay Singh | Scout',
     verifiedSubs: 5000000,
     niche: 'Gaming',

@@ -72,7 +72,7 @@ export const FAMOUS_CREATOR_IMPOSTOR_MAP: Record<
   'bb ki vines': { minExpectedSubs: 20000000, canonicalHandle: 'BBKiVines', platform: 'YOUTUBE' },
   'technical guruji': { minExpectedSubs: 20000000, canonicalHandle: 'TechnicalGuruji', platform: 'YOUTUBE' },
   'triggered insaan': { minExpectedSubs: 18000000, canonicalHandle: 'triggeredinsaan', platform: 'YOUTUBE' },
-  'harsh beniwal': { minExpectedSubs: 12000000, canonicalHandle: 'harshbeniwal', platform: 'YOUTUBE' },
+  'harsh beniwal': { minExpectedSubs: 12000000, canonicalHandle: 'harshbeniwal21', platform: 'YOUTUBE' },
   'mythpat': { minExpectedSubs: 12000000, canonicalHandle: 'mythpat', platform: 'YOUTUBE' },
   'trakin tech': { minExpectedSubs: 10000000, canonicalHandle: 'trakintech', platform: 'YOUTUBE' },
   'kabita\'s kitchen': { minExpectedSubs: 10000000, canonicalHandle: 'kabitaskitchen', platform: 'YOUTUBE' },
