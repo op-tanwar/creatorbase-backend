@@ -270,6 +270,11 @@ export class CreatorService {
 
     // Scrape via ApifyService
     const scraped = await ApifyService.scrapeInstagramProfile(cleanHandle, city, niche);
+    if (!scraped) {
+      const error: any = new Error(`Creator profile @${cleanHandle} could not be verified on live platform or failed quality gate.`);
+      error.statusCode = 404;
+      throw error;
+    }
     const upserted = await this.upsertScrapedCreator(scraped);
 
     return {
@@ -325,6 +330,14 @@ export class CreatorService {
         platform,
         fullName: scraped.fullName,
         avatarUrl: scraped.avatarUrl,
+        profileUrl:
+          scraped.profileUrl ||
+          (platform === Platform.YOUTUBE
+            ? `https://www.youtube.com/@${scraped.handle}`
+            : `https://www.instagram.com/${scraped.handle}/`),
+        channelId: scraped.channelId || null,
+        isVerifiedAuthentic: true,
+        lastVerifiedAt: new Date(),
         bio: scraped.bio,
         followerCount: scraped.followerCount,
         followingCount: scraped.followingCount,
@@ -347,6 +360,14 @@ export class CreatorService {
         platform,
         fullName: scraped.fullName,
         avatarUrl: scraped.avatarUrl,
+        profileUrl:
+          scraped.profileUrl ||
+          (platform === Platform.YOUTUBE
+            ? `https://www.youtube.com/@${scraped.handle}`
+            : `https://www.instagram.com/${scraped.handle}/`),
+        channelId: scraped.channelId || null,
+        isVerifiedAuthentic: true,
+        lastVerifiedAt: new Date(),
         bio: scraped.bio,
         followerCount: scraped.followerCount,
         followingCount: scraped.followingCount,

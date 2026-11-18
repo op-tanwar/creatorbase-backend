@@ -14,6 +14,7 @@
     "db:sanitize-emails": "tsx prisma/sanitizeEmails.ts",
     "db:sanitize-handles": "tsx prisma/sanitizeHandles.ts",
     "test:verify-identities": "tsx prisma/verifyCreatorIdentities.ts",
+    "db:rehydrate-real": "tsx prisma/rehydrateRealCreators.ts",
     "test:api-matrix": "tsx scripts/runCompleteApiAudit.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
