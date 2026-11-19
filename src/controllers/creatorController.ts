@@ -72,6 +72,45 @@ export class CreatorController {
     }
   }
 
+  static async getCreatorAnalytics(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const analytics = await CreatorService.getCreatorAnalytics(id);
+      res.status(200).json({
+        success: true,
+        data: analytics,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getCreatorAudit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const audit = await CreatorService.getCreatorAudit(id);
+      res.status(200).json({
+        success: true,
+        data: audit,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getCreatorLookalikes(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const lookalikes = await CreatorService.getCreatorLookalikes(id);
+      res.status(200).json({
+        success: true,
+        data: lookalikes,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async syncLiveCreator(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { handle, city, niche, forceRefresh } = req.body;

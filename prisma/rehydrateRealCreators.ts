@@ -532,8 +532,8 @@ export const YOUTUBE_MARQUEE_REGISTRY: Record<string, MarqueeChannelDef> = {
     avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&auto=format&fit=crop&q=80',
   },
   rachanaranade: {
-    canonicalHandle: 'rachanaranade',
-    canonicalUrl: 'https://www.youtube.com/@rachanaranade',
+    canonicalHandle: 'CARachanaRanade',
+    canonicalUrl: 'https://www.youtube.com/@CARachanaRanade',
     officialName: 'CA Rachana Phadke Ranade',
     verifiedSubs: 4800000,
     niche: 'Finance',

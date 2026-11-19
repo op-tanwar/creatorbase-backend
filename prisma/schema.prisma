@@ -70,6 +70,16 @@ enum EnrichmentStatus {
   FAILED
 }
 
+enum OutreachStatus {
+  DRAFT
+  SENT
+  PITCHED
+  REPLIED
+  NEGOTIATING
+  CONTRACTED
+  DECLINED
+}
+
 model User {
   id                     String             @id @default(uuid())
   name                   String
@@ -91,6 +101,9 @@ model User {
   campaigns              Campaign[]
   payments               Payment[]
   enrichmentJobs         EnrichmentJob[]
+  outreachThreads        OutreachThread[]
+  outreachSequences      OutreachSequence[]
+  invoices               Invoice[]
 
   @@map("users")
 }
@@ -140,10 +153,34 @@ model Creator {
   audienceTopCity          String
   audienceFemalePercentage Int
   audienceMalePercentage   Int
+  
+  // Enterprise Audience Intelligence & Performance
+  audienceCredibilityScore Int?            @default(94)
+  aqsScore                 Int?            @default(92)
+  commentPodDetected       Boolean?        @default(false)
+  followerGrowthAnomaly    Boolean?        @default(false)
+  growthRate30d            Float?          @default(4.8)
+  growthRate90d            Float?          @default(14.2)
+  sponsoredRatio           Float?          @default(0.18)
+  primaryLanguage          String?         @default("Hindi")
+  recentKeywords           Json?
+  brandAffinity            Json?
+  brandMentions            Json?
+  topCountries             Json?
+  topCities                Json?
+  ageDistribution          Json?
+  genderSplit              Json?
+
   lastScrapedAt            DateTime?
   createdAt                DateTime        @default(now())
   updatedAt                DateTime        @updatedAt
   shortlistItems           ShortlistItem[]
+  outreachThreads          OutreachThread[]
+  campaignPosts            CampaignPost[]
+  campaignAttributions     CampaignAttribution[]
+  campaignPayouts          CampaignPayout[]
+  contracts                CreatorContract[]
+  productSeedings          ProductSeeding[]
 
   @@index([city])
   @@index([niche])
@@ -153,20 +190,153 @@ model Creator {
 }
 
 model Campaign {
-  id          String         @id @default(uuid())
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  description String
-  budgetINR   Float
-  targetCity  String?
-  status      CampaignStatus @default(ACTIVE)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  shortlists  Shortlist[]
+  id               String          @id @default(uuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  brandName        String?
+  targetNiche      String?
+  budgetINR        Float
+  currency         String          @default("INR") // "INR" | "USD"
+  targetCity       String?
+  status           CampaignStatus  @default(ACTIVE)
+  startDate        DateTime?
+  endDate          DateTime?
+  totalSpendINR    Float           @default(0)
+  totalReach       Int             @default(0)
+  totalImpressions Int             @default(0)
+  totalEngagements Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  shortlists       Shortlist[]
+  metrics          CampaignMetric[]
+  outreachThreads  OutreachThread[]
+  outreachSequences OutreachSequence[]
+  posts            CampaignPost[]
+  attributions     CampaignAttribution[]
+  payouts          CampaignPayout[]
+  contracts        CreatorContract[]
+  productSeedings  ProductSeeding[]
 
   @@index([userId])
   @@map("campaigns")
+}
+
+model CampaignMetric {
+  id           String   @id @default(uuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  date         DateTime @default(now())
+  views        Int      @default(0)
+  clicks       Int      @default(0)
+  conversions  Int      @default(0)
+  spendINR     Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([campaignId])
+  @@map("campaign_metrics")
+}
+
+model CampaignPost {
+  id               String   @id @default(uuid())
+  campaignId       String
+  campaign         Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId        String
+  creator          Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  postUrl          String
+  platform         Platform @default(INSTAGRAM)
+  mediaType        String   @default("REEL") // "REEL" | "VIDEO" | "POST" | "STORY"
+  caption          String?
+  thumbnailUrl     String?
+  liveViews        Int      @default(0)
+  liveLikes        Int      @default(0)
+  liveComments     Int      @default(0)
+  engagementRate   Float    @default(0)
+  actualCpmINR     Float    @default(0)
+  estimatedEmvINR  Float    @default(0)
+  hasAdDisclosure  Boolean  @default(false)
+  disclosureType   String?  // "#ad" | "#sponsored" | "paid partnership" | "none"
+  lastCheckedAt    DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([creatorId])
+  @@map("campaign_posts")
+}
+
+model CampaignAttribution {
+  id                   String   @id @default(uuid())
+  campaignId           String
+  campaign             Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId            String
+  creator              Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignCode         String
+  creatorSlug          String
+  utmUrl               String
+  promoCode            String?
+  discountPercent      Float?   @default(15)
+  totalClicks          Int      @default(0)
+  totalConversions     Int      @default(0)
+  revenueAttributedINR Float    @default(0)
+  roas                 Float    @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([campaignCode, creatorSlug])
+  @@index([campaignId])
+  @@index([creatorId])
+  @@map("campaign_attributions")
+}
+
+model CampaignPayout {
+  id             String    @id @default(uuid())
+  campaignId     String
+  campaign       Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId      String
+  creator        Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  grossFeeINR    Float
+  tdsSection     String    @default("194J") // "194J" (10% professional) | "194C" (2% contractor)
+  tdsRate        Float     @default(10)
+  tdsAmountINR   Float
+  netPayableINR  Float
+  advancePaidINR Float     @default(0)
+  balanceDueINR  Float
+  payoutStatus   String    @default("PENDING") // "PENDING" | "ADVANCE_PAID" | "FULLY_SETTLED"
+  panNumber      String?
+  paymentRef     String?
+  settledAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([creatorId])
+  @@map("campaign_payouts")
+}
+
+model OutreachSequence {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  campaignId       String?
+  campaign         Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  stepCount        Int       @default(2)
+  initialSubject   String
+  initialBody      String
+  followupSubject  String?
+  followupBody     String?
+  delayDays        Int       @default(3)
+  totalRecipients  Int       @default(0)
+  repliedCount     Int       @default(0)
+  status           String    @default("ACTIVE")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([campaignId])
+  @@map("outreach_sequences")
 }
 
 model Shortlist {
@@ -212,6 +382,67 @@ model ShortlistItem {
   @@map("shortlist_items")
 }
 
+model OutreachThread {
+  id             String          @id @default(uuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorId      String
+  creator        Creator         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignId     String?
+  campaign       Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  creatorEmail   String
+  subject        String
+  status         OutreachStatus  @default(PITCHED)
+  deliverable    String?
+  offerINR       Float?
+  lastMessageAt  DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  messages       OutreachMessage[]
+
+  @@index([userId])
+  @@index([creatorId])
+  @@index([campaignId])
+  @@index([status])
+  @@map("outreach_threads")
+}
+
+model OutreachMessage {
+  id        String         @id @default(uuid())
+  threadId  String
+  thread    OutreachThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    String         // "USER" | "CREATOR"
+  body      String
+  sentAt    DateTime       @default(now())
+
+  @@index([threadId])
+  @@map("outreach_messages")
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount        Float
+  currency      String   @default("INR")
+  agencyGstin   String?
+  clientGstin   String?
+  sacCode       String   @default("998314")
+  cgst          Float    @default(0)
+  sgst          Float    @default(0)
+  igst          Float    @default(0)
+  totalWithTax  Float
+  status        String   @default("PAID")
+  paymentId     String?
+  billingAddress Json?
+  lineItems     Json?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@map("invoices")
+}
+
 model Lead {
   id          String     @id @default(uuid())
   fullName    String
@@ -246,4 +477,54 @@ model EnrichmentJob {
   @@index([userId])
   @@index([status])
   @@map("enrichment_jobs")
+}
+
+model CreatorContract {
+  id                 String    @id @default(uuid())
+  campaignId         String
+  campaign           Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId          String
+  creator            Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  contractNumber     String    @unique
+  deliverables       String
+  usageRightsDays    Int       @default(90)
+  exclusivityDays    Int       @default(30)
+  compensationINR    Float
+  termsAndConditions String?
+  status             String    @default("DRAFT") // "DRAFT" | "SENT" | "SIGNED" | "DECLINED"
+  shareToken         String?   @unique
+  signedByName       String?
+  signedAt           DateTime?
+  signedIp           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([creatorId])
+  @@index([shareToken])
+  @@map("creator_contracts")
+}
+
+model ProductSeeding {
+  id              String    @id @default(uuid())
+  campaignId      String
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId       String
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  productName     String
+  productSku      String
+  productValueINR Float     @default(0)
+  shippingAddress String
+  courierPartner  String?   @default("Bluedart") // "Bluedart" | "Delhivery" | "Shiprocket" | "DTDC"
+  trackingNumber  String?
+  shippingStatus  String    @default("PREPARING") // "PREPARING" | "DISPATCHED" | "IN_TRANSIT" | "DELIVERED"
+  dispatchedAt    DateTime?
+  deliveredAt     DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([creatorId])
+  @@map("product_seedings")
 }
