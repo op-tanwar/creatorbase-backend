@@ -50,9 +50,33 @@ export class CreatorController {
   static async getCreators(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await CreatorService.getCreators(req.query as any);
+      const isAuthed = Boolean((req as any).user);
+
+      const safeCreators = isAuthed
+        ? result.creators
+        : result.creators.map((c: any) => {
+            let maskedEmail: string | null = null;
+            if (c.businessEmail) {
+              const parts = c.businessEmail.split('@');
+              if (parts.length === 2) {
+                const user = parts[0];
+                const domain = parts[1];
+                maskedEmail = `${user.slice(0, 2)}***@${domain}`;
+              }
+            }
+            return {
+              ...c,
+              businessEmail: maskedEmail,
+              rawEmailLocked: !!c.businessEmail,
+            };
+          });
+
       res.status(200).json({
         success: true,
-        data: result,
+        data: {
+          ...result,
+          creators: safeCreators,
+        },
       });
     } catch (err) {
       next(err);

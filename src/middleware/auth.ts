@@ -62,3 +62,36 @@ export const requireAuth = async (
     return;
   }
 };
+
+export const optionalAuth = async (
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = verifyToken(token);
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { isSuspended: true, suspensionReason: true, role: true },
+    });
+
+    if (dbUser && !dbUser.isSuspended) {
+      req.user = {
+        ...decoded,
+        role: dbUser.role,
+      };
+    }
+  } catch (_err) {
+    // Treat invalid token in optionalAuth as guest session
+  }
+  next();
+};
