@@ -130,10 +130,12 @@ model Payment {
 model Creator {
   id                       String          @id @default(uuid())
   handle                   String          @unique
+  canonicalHandle          String          @default("")
   platform                 Platform
   fullName                 String
   avatarUrl                String
   bio                      String?
+  gender                   String          @default("UNSPECIFIED") // "MALE" | "FEMALE" | "UNSPECIFIED"
   postsCount               Int?            @default(0)
   city                     String
   state                    String
@@ -150,6 +152,7 @@ model Creator {
   profileUrl               String?
   channelId                String?
   lastVerifiedAt           DateTime?
+  lastAuditedAt            DateTime?
   audienceTopCity          String
   audienceFemalePercentage Int
   audienceMalePercentage   Int
@@ -186,6 +189,7 @@ model Creator {
   @@index([niche])
   @@index([followerCount])
   @@index([engagementRate])
+  @@index([gender])
   @@map("creators")
 }
 

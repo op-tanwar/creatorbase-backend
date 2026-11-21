@@ -3,10 +3,12 @@ import { ApifyClient } from 'apify-client';
 export interface ScrapedCreatorData {
   platform: 'INSTAGRAM' | 'YOUTUBE';
   handle: string;
+  canonicalHandle: string;
   fullName: string;
   avatarUrl: string;
   profileUrl: string;
   bio: string | null;
+  gender: 'MALE' | 'FEMALE' | 'UNSPECIFIED';
   followerCount: number;
   followingCount: number;
   postsCount: number;
@@ -18,6 +20,7 @@ export interface ScrapedCreatorData {
   isVerified: boolean;
   isVerifiedAuthentic: boolean;
   lastVerifiedAt: Date;
+  lastAuditedAt?: Date;
   city: string;
   state?: string;
   niche: string;
@@ -28,14 +31,19 @@ export type ScrapedInstagramData = ScrapedCreatorData;
 
 export interface SeedCreatorTarget {
   handle: string;
+  canonicalHandle?: string;
   fullName: string;
+  platform?: 'INSTAGRAM' | 'YOUTUBE';
   city: string;
+  state?: string;
   niche: string;
+  gender?: 'MALE' | 'FEMALE' | 'UNSPECIFIED';
   defaultBio: string;
   approxFollowers: number;
   isVerified?: boolean;
   canonicalUrl?: string;
   channelId?: string;
+  businessEmail?: string;
 }
 
 export interface CreatorQualityResult {
@@ -575,6 +583,76 @@ export const REAL_INDIAN_CREATOR_REGISTRY: SeedCreatorTarget[] = [
 ];
 
 /**
+ * Accurately detects creator gender ('MALE' | 'FEMALE' | 'UNSPECIFIED') from:
+ * 1. Explicit target metadata (if provided)
+ * 2. Bio pronouns and gender keywords (she/her, he/him, mother, father, etc.)
+ * 3. Verified first-name lookup for Indian creators
+ */
+export function detectGender(
+  metaGender?: string,
+  bio?: string | null,
+  fullName?: string | null,
+  handle?: string | null,
+  _niche?: string | null
+): 'MALE' | 'FEMALE' | 'UNSPECIFIED' {
+  if (metaGender === 'MALE' || metaGender === 'FEMALE') {
+    return metaGender;
+  }
+
+  const bioText = `${bio || ''} ${fullName || ''} ${handle || ''}`.toLowerCase();
+
+  // Explicit pronouns & gender keywords
+  const femalePattern = /\b(she\/her|she\s*\/\s*her|her\/she|mother|mom|wife|daughter|actress|girl|woman|female|miss|mrs|queen|sister|didi|bhabhi|lady|bride|mummy|nari)\b/i;
+  const malePattern = /\b(he\/him|he\s*\/\s*him|him\/he|father|dad|husband|son|actor|boy|man|male|mr|king|brother|bhaiya|bhai|dude|groom|papa|purush)\b/i;
+
+  if (femalePattern.test(bioText) && !malePattern.test(bioText)) {
+    return 'FEMALE';
+  }
+  if (malePattern.test(bioText) && !femalePattern.test(bioText)) {
+    return 'MALE';
+  }
+
+  // Name heuristic lookup
+  const cleanName = (fullName || '').trim().toLowerCase();
+  const firstName = cleanName.split(/[\s|._-]+/)[0] || '';
+
+  const FEMALE_NAMES = new Set([
+    'ananya', 'shreya', 'prajakta', 'kusha', 'dolly', 'komal', 'masoom', 'kritika',
+    'sejal', 'mithila', 'radhika', 'saloni', 'juhi', 'barkha', 'niharika', 'aashna',
+    'ritu', 'kabita', 'pooja', 'sakshi', 'nisha', 'garima', 'natasha', 'shraddha',
+    'tanvi', 'diya', 'sneha', 'riya', 'neha', 'priyanka', 'disha', 'deepika',
+    'alia', 'katrina', 'anushka', 'shruti', 'swati', 'bhavna', 'sonali', 'shweta',
+    'divya', 'mehak', 'aakriti', 'debasree', 'malvika', 'tarini', 'santoshi',
+    'roshni', 'diipa', 'ankita', 'jovita', 'chahat', 'sarah', 'meghna', 'savi',
+    'tanya', 'aakanksha', 'kamiya', 'payal', 'kaashvi', 'gautami', 'rachana',
+  ]);
+
+  const MALE_NAMES = new Set([
+    'rahul', 'tanmay', 'carry', 'ajey', 'bhuvan', 'ashish', 'harsh', 'gaurav',
+    'naman', 'abhishek', 'amit', 'ranveer', 'sandeep', 'dhruv', 'ankur', 'shlok',
+    'faisal', 'rohit', 'nikhil', 'vivek', 'sagar', 'sahil', 'pranjal', 'raj',
+    'kunal', 'zakir', 'bassi', 'samay', 'vipul', 'akash', 'sourav', 'ujjwal',
+    'nischay', 'alakh', 'mithilesh', 'ershad', 'bharat', 'aadi', 'sanjeev',
+    'amar', 'sharan', 'akshat', 'varun', 'mohit', 'ronnie', 'barty', 'karan',
+    'harry', 'yaman', 'shivesh', 'ankush', 'siddharth', 'karron', 'usaamah',
+    'dhananjay', 'ruhez', 'munawar', 'vir', 'kenny', 'kanan', 'abhyudaya',
+  ]);
+
+  if (FEMALE_NAMES.has(firstName)) return 'FEMALE';
+  if (MALE_NAMES.has(firstName)) return 'MALE';
+
+  // Check substrings if compound name
+  for (const fn of FEMALE_NAMES) {
+    if (cleanName.includes(fn)) return 'FEMALE';
+  }
+  for (const mn of MALE_NAMES) {
+    if (cleanName.includes(mn)) return 'MALE';
+  }
+
+  return 'UNSPECIFIED';
+}
+
+/**
  * Strict Quality Gatekeeper: Validates that a creator satisfies all platform authenticity standards.
  * Zero-tolerance for synthetic, bot, ghost, private, or impostor accounts.
  */
@@ -585,10 +663,10 @@ export function validateCreatorQuality(profile: any): CreatorQualityResult {
     return { isValid: false, reasons: ['Profile payload is empty'] };
   }
 
-  // 1. Minimum Follower / Subscriber Threshold (>= 5,000)
+  // 1. Minimum Follower / Subscriber Threshold (>= 100,000 Pan-India 100K+ Gate)
   const followers = Number(profile.followerCount ?? 0);
-  if (isNaN(followers) || followers < 5000) {
-    reasons.push(`Follower count ${followers} is below 5,000 nano-influencer baseline`);
+  if (isNaN(followers) || followers < 100000) {
+    reasons.push(`Follower count ${followers} is below 100,000 (100K+) verified threshold`);
   }
 
   // 2. Minimum Engagement Rate Gate (>= 0.1%, no runaway bot pod spikes > 40%)
@@ -807,11 +885,11 @@ export class ApifyService {
       return null;
     }
 
-    // Follower Count
+    // Follower Count (>= 100,000 Pan-India 100K+ Gate)
     const followerCount = Number(raw.followersCount ?? raw.followers ?? 0);
-    if (followerCount < 5000) {
+    if (followerCount < 100000) {
       console.warn(
-        `[ApifyService] Profile @${cleanUsername} rejected: Follower count ${followerCount} < 5,000 baseline.`
+        `[ApifyService] Profile @${cleanUsername} rejected: Follower count ${followerCount} < 100,000 baseline.`
       );
       return null;
     }
@@ -905,14 +983,17 @@ export class ApifyService {
     const isVerified = Boolean(raw.verified ?? raw.isVerified ?? followerCount >= 300000);
     const detectedCity = targetMeta?.city || this.detectCity(aggregatedCaptions);
     const detectedNiche = targetMeta?.niche || this.detectNiche(aggregatedCaptions);
+    const detectedGender = targetMeta?.gender || detectGender(undefined, bio, fullName, cleanUsername, detectedNiche);
 
     const creatorRecord: ScrapedInstagramData = {
       platform: 'INSTAGRAM',
       handle: cleanUsername,
+      canonicalHandle: cleanUsername,
       fullName,
       avatarUrl,
       profileUrl: canonicalProfileUrl,
       bio: bio || null,
+      gender: detectedGender,
       followerCount,
       followingCount,
       postsCount,
@@ -924,6 +1005,7 @@ export class ApifyService {
       isVerified,
       isVerifiedAuthentic: true,
       lastVerifiedAt: new Date(),
+      lastAuditedAt: new Date(),
       city: detectedCity,
       niche: detectedNiche,
     };
@@ -990,9 +1072,9 @@ export class ApifyService {
       raw.numberOfSubscribers ?? raw.subscribersCount ?? raw.subscriberCount ?? targetMeta?.approxFollowers ?? 0
     );
 
-    // Reject channels with < 5,000 subscribers baseline
-    if (subscriberCount < 5000) {
-      console.warn(`[ApifyService] YouTube channel '${channelTitle}' rejected: Subscribers (${subscriberCount}) < 5,000.`);
+    // Reject channels with < 100,000 subscribers baseline (Pan-India 100K+ Gate)
+    if (subscriberCount < 100000) {
+      console.warn(`[ApifyService] YouTube channel '${channelTitle}' rejected: Subscribers (${subscriberCount}) < 100,000.`);
       return null;
     }
 
@@ -1068,14 +1150,17 @@ export class ApifyService {
 
     const city = targetMeta?.city || this.detectCity(`${bio} ${channelTitle}`);
     const niche = targetMeta?.niche || this.detectNiche(`${bio} ${channelTitle}`);
+    const detectedGender = targetMeta?.gender || detectGender(undefined, bio, channelTitle, cleanHandle, niche);
 
     const creatorRecord: ScrapedCreatorData = {
       platform: 'YOUTUBE',
       handle: cleanHandle,
+      canonicalHandle: cleanHandle,
       fullName: channelTitle,
       avatarUrl,
       profileUrl,
       bio: bio || null,
+      gender: detectedGender,
       followerCount: subscriberCount,
       followingCount: 0,
       postsCount: videoCount,
@@ -1087,6 +1172,7 @@ export class ApifyService {
       isVerified: subscriberCount >= 100000,
       isVerifiedAuthentic: true,
       lastVerifiedAt: new Date(),
+      lastAuditedAt: new Date(),
       city,
       niche,
       channelId: channelId || null,

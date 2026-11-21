@@ -24,8 +24,9 @@ export const creatorQuerySchema = z.object({
   platform: z.enum(['INSTAGRAM', 'YOUTUBE', 'ALL']).optional(),
   city: z.string().optional(),
   niche: z.string().optional(),
-  minFollowers: z.any().optional().transform((val) => safeInt(val, 5000, 5000)),
-  maxFollowers: z.any().optional().transform((val) => safeInt(val, undefined, 5000)),
+  gender: z.enum(['MALE', 'FEMALE', 'ALL', 'UNSPECIFIED']).optional(),
+  minFollowers: z.any().optional().transform((val) => safeInt(val, 100000, 100000)),
+  maxFollowers: z.any().optional().transform((val) => safeInt(val, undefined, 100000)),
   minEngagement: z.any().optional().transform((val) => safeFloat(val, 1.0, 1.0, 100)),
   search: z.string().optional(),
 });

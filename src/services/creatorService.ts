@@ -86,10 +86,14 @@ export class CreatorService {
       };
     }
 
-    // Quality Gatekeeper Rule 1: Enforce hard minimum followerCount >= 5,000 (nano-influencer floor)
+    if (query.gender && query.gender !== 'ALL') {
+      where.gender = query.gender;
+    }
+
+    // Quality Gatekeeper Rule 1: Enforce hard minimum followerCount >= 100,000 (Pan-India 100K+ Gate)
     const minFollowersVal = Math.max(
-      5000,
-      query.minFollowers !== undefined && !isNaN(query.minFollowers) ? query.minFollowers : 5000
+      100000,
+      query.minFollowers !== undefined && !isNaN(query.minFollowers) ? query.minFollowers : 100000
     );
     where.followerCount = {
       gte: minFollowersVal,
@@ -137,11 +141,23 @@ export class CreatorService {
 
     const totalPages = Math.ceil(total / limit) || 1;
 
-    // Attach computed Authenticity Score (0-100) to every creator record
-    const mappedCreators = creators.map((creator) => ({
-      ...creator,
-      authenticityScore: computeAuthenticityScore(creator),
-    }));
+    // Attach computed Authenticity Score & verified canonical URL to every creator record
+    const mappedCreators = creators.map((creator) => {
+      const canonicalProfileUrl =
+        creator.profileUrl ||
+        (creator.platform === Platform.YOUTUBE
+          ? ((creator.canonicalHandle || creator.handle).startsWith('UC')
+              ? `https://www.youtube.com/channel/${creator.canonicalHandle || creator.handle}`
+              : `https://www.youtube.com/@${(creator.canonicalHandle || creator.handle).replace(/^@/, '')}`)
+          : `https://www.instagram.com/${creator.handle.replace(/^@/, '')}/`);
+
+      return {
+        ...creator,
+        profileUrl: canonicalProfileUrl,
+        canonicalHandle: creator.canonicalHandle || creator.handle,
+        authenticityScore: computeAuthenticityScore(creator),
+      };
+    });
 
     return {
       creators: mappedCreators,
@@ -213,8 +229,18 @@ export class CreatorService {
     );
     const authenticityScore = computeAuthenticityScore(creator);
 
+    const canonicalProfileUrl =
+      creator.profileUrl ||
+      (creator.platform === Platform.YOUTUBE
+        ? (creator.canonicalHandle?.startsWith('UC')
+            ? `https://www.youtube.com/channel/${creator.canonicalHandle}`
+            : `https://www.youtube.com/@${(creator.canonicalHandle || creator.handle).replace(/^@/, '')}`)
+        : `https://www.instagram.com/${creator.handle.replace(/^@/, '')}/`);
+
     return {
       ...creator,
+      profileUrl: canonicalProfileUrl,
+      canonicalHandle: creator.canonicalHandle || creator.handle,
       authenticityScore,
       analytics: {
         estimatedCostPerReelINR,
@@ -327,18 +353,21 @@ export class CreatorService {
       where: { handle: scraped.handle },
       create: {
         handle: scraped.handle,
+        canonicalHandle: scraped.canonicalHandle || scraped.handle,
         platform,
         fullName: scraped.fullName,
         avatarUrl: scraped.avatarUrl,
         profileUrl:
           scraped.profileUrl ||
           (platform === Platform.YOUTUBE
-            ? `https://www.youtube.com/@${scraped.handle}`
+            ? `https://www.youtube.com/@${scraped.canonicalHandle || scraped.handle}`
             : `https://www.instagram.com/${scraped.handle}/`),
         channelId: scraped.channelId || null,
         isVerifiedAuthentic: true,
         lastVerifiedAt: new Date(),
+        lastAuditedAt: new Date(),
         bio: scraped.bio,
+        gender: scraped.gender || 'UNSPECIFIED',
         followerCount: scraped.followerCount,
         followingCount: scraped.followingCount,
         postsCount: scraped.postsCount,
@@ -357,18 +386,21 @@ export class CreatorService {
         lastScrapedAt: new Date(),
       },
       update: {
+        canonicalHandle: scraped.canonicalHandle || scraped.handle,
         platform,
         fullName: scraped.fullName,
         avatarUrl: scraped.avatarUrl,
         profileUrl:
           scraped.profileUrl ||
           (platform === Platform.YOUTUBE
-            ? `https://www.youtube.com/@${scraped.handle}`
+            ? `https://www.youtube.com/@${scraped.canonicalHandle || scraped.handle}`
             : `https://www.instagram.com/${scraped.handle}/`),
         channelId: scraped.channelId || null,
         isVerifiedAuthentic: true,
         lastVerifiedAt: new Date(),
+        lastAuditedAt: new Date(),
         bio: scraped.bio,
+        gender: scraped.gender || 'UNSPECIFIED',
         followerCount: scraped.followerCount,
         followingCount: scraped.followingCount,
         postsCount: scraped.postsCount,
@@ -555,15 +587,69 @@ export class CreatorService {
     ];
     const brandAffinityTags = (creator.brandAffinity as any) || defaultBrandTags;
 
-    // Language distribution
-    const primaryLang = creator.primaryLanguage || 'Hindi';
+    // Language distribution derived from region & niche
+    const cityLower = (creator.city || '').toLowerCase();
+    let primaryLang = creator.primaryLanguage || 'Hindi';
+    let langBreakdown = [
+      { language: 'Hindi', percentage: 64 },
+      { language: 'Hinglish', percentage: 22 },
+      { language: 'English', percentage: 14 },
+    ];
+
+    if (/mumbai|pune|maharashtra/i.test(cityLower)) {
+      primaryLang = 'Hindi / Marathi';
+      langBreakdown = [
+        { language: 'Hindi', percentage: 52 },
+        { language: 'Marathi', percentage: 28 },
+        { language: 'English', percentage: 20 },
+      ];
+    } else if (/bangalore|bengaluru/i.test(cityLower)) {
+      primaryLang = 'Kannada / English';
+      langBreakdown = [
+        { language: 'English', percentage: 48 },
+        { language: 'Kannada', percentage: 32 },
+        { language: 'Hindi', percentage: 20 },
+      ];
+    } else if (/hyderabad|telangana/i.test(cityLower)) {
+      primaryLang = 'Telugu / Hindi';
+      langBreakdown = [
+        { language: 'Telugu', percentage: 46 },
+        { language: 'Hindi', percentage: 34 },
+        { language: 'English', percentage: 20 },
+      ];
+    } else if (/chennai|tamil/i.test(cityLower)) {
+      primaryLang = 'Tamil / English';
+      langBreakdown = [
+        { language: 'Tamil', percentage: 58 },
+        { language: 'English', percentage: 30 },
+        { language: 'Hindi', percentage: 12 },
+      ];
+    } else if (/kolkata|bengal/i.test(cityLower)) {
+      primaryLang = 'Bengali / Hindi';
+      langBreakdown = [
+        { language: 'Bengali', percentage: 54 },
+        { language: 'Hindi', percentage: 30 },
+        { language: 'English', percentage: 16 },
+      ];
+    } else if (/ahmedabad|gujarat|surat/i.test(cityLower)) {
+      primaryLang = 'Gujarati / Hindi';
+      langBreakdown = [
+        { language: 'Gujarati', percentage: 50 },
+        { language: 'Hindi', percentage: 36 },
+        { language: 'English', percentage: 14 },
+      ];
+    } else if (/chandigarh|punjab/i.test(cityLower)) {
+      primaryLang = 'Punjabi / Hindi';
+      langBreakdown = [
+        { language: 'Punjabi', percentage: 56 },
+        { language: 'Hindi', percentage: 32 },
+        { language: 'English', percentage: 12 },
+      ];
+    }
+
     const languageDistribution = {
       primary: primaryLang,
-      breakdown: [
-        { language: 'Hindi', percentage: 64 },
-        { language: 'Hinglish', percentage: 22 },
-        { language: 'English', percentage: 14 },
-      ],
+      breakdown: langBreakdown,
     };
 
     const recentKeywords = (creator.recentKeywords as any) || [
@@ -576,11 +662,25 @@ export class CreatorService {
 
     const aqs = creator.aqsScore || Math.min(99, Math.max(75, authenticityScore - 2));
 
+    const canonicalProfileUrl =
+      creator.profileUrl ||
+      (creator.platform === Platform.YOUTUBE
+        ? `https://www.youtube.com/@${creator.canonicalHandle || creator.handle}`
+        : `https://www.instagram.com/${creator.handle}/`);
+
     return {
       creatorId: creator.id,
       handle: creator.handle,
+      canonicalHandle: creator.canonicalHandle || creator.handle,
       fullName: creator.fullName,
       platform: creator.platform,
+      profileUrl: canonicalProfileUrl,
+      bio: creator.bio,
+      businessEmail: creator.businessEmail,
+      gender: creator.gender,
+      isVerifiedAuthentic: creator.isVerifiedAuthentic,
+      lastAuditedAt: creator.lastAuditedAt || creator.lastVerifiedAt || creator.updatedAt,
+      lastVerifiedAt: creator.lastVerifiedAt,
       city: creator.city,
       niche: creator.niche,
       followerCount: creator.followerCount,
@@ -688,7 +788,7 @@ export class CreatorService {
     const minFollowers = Math.round(target.followerCount * 0.25);
     const maxFollowers = Math.round(target.followerCount * 3.5);
 
-    // Find creators in same niche or same city
+    // Find creators in same niche or same city (>= 100K+)
     const lookalikes = await prisma.creator.findMany({
       where: {
         id: { not: target.id },
@@ -697,7 +797,7 @@ export class CreatorService {
           { city: { equals: target.city, mode: 'insensitive' } },
         ],
         followerCount: {
-          gte: Math.max(5000, minFollowers),
+          gte: Math.max(100000, minFollowers),
           lte: maxFollowers,
         },
       },
@@ -705,14 +805,14 @@ export class CreatorService {
       orderBy: [{ engagementRate: 'desc' }, { followerCount: 'desc' }],
     });
 
-    // If less than 10 found, fill with top creators in general
+    // If less than 10 found, fill with top creators in general (>= 100K+)
     let results = lookalikes;
     if (results.length < 10) {
       const existingIds = [target.id, ...results.map((c) => c.id)];
       const fillers = await prisma.creator.findMany({
         where: {
           id: { notIn: existingIds },
-          followerCount: { gte: 10000 },
+          followerCount: { gte: 100000 },
         },
         take: 10 - results.length,
         orderBy: [{ followerCount: 'desc' }],
@@ -720,10 +820,15 @@ export class CreatorService {
       results = [...results, ...fillers];
     }
 
-    return results.map((c) => ({
+    return results.map((c, idx) => ({
       ...c,
+      profileUrl:
+        c.profileUrl ||
+        (c.platform === Platform.YOUTUBE
+          ? `https://www.youtube.com/@${c.canonicalHandle || c.handle}`
+          : `https://www.instagram.com/${c.handle}/`),
       authenticityScore: computeAuthenticityScore(c),
-      similarityScore: Math.round(85 + Math.random() * 12),
+      similarityScore: Math.min(98, Math.max(82, 94 - idx * 2)),
     }));
   }
 

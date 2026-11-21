@@ -6,12 +6,14 @@ export class CreatorController {
     try {
       const city = req.query.city ? String(req.query.city) : undefined;
       const niche = req.query.niche ? String(req.query.niche) : undefined;
+      const gender = req.query.gender ? String(req.query.gender) : undefined;
       const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
       const limit = req.query.limit ? Math.min(50, parseInt(String(req.query.limit), 10)) : 16;
 
       const result = await CreatorService.getCreators({
         city: city && city.toLowerCase() !== 'all' ? city : undefined,
         niche: niche && niche.toLowerCase() !== 'all' ? niche : undefined,
+        gender: gender && gender.toUpperCase() !== 'ALL' ? (gender.toUpperCase() as any) : undefined,
         page,
         limit,
       });
